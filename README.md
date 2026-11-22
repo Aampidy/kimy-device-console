@@ -1,82 +1,141 @@
-# PID Visualizer
+# kimy Device Console
 
-通过 JavaScript 适配器把设备接入 PID 调试界面。可同时查看多个控制环、暂停回看、操作设备，并保存报文和采样 CSV。浏览器界面和本地 Node.js 服务都使用原生 API，无需安装 npm 依赖。
+### 让 AI 一键适配设备，在浏览器里直接调试
 
-## 快速运行
+面向电赛智能小车、电机实验台和传感器节点等设备的多协议调试控制台。可通过串口或 BLE 现场接入，也可经 TCP/UDP 或 WebSocket 远程连接网络设备，查看状态与实时曲线、读写参数、发送指令，并保存报文和采样数据。
 
-使用 Node.js 24，在项目目录运行以下命令。Windows 用户也可以双击 `start.cmd`，脚本优先使用 `runtime/node.exe`，也支持系统已安装的 Node.js。
+把协议文档、固件源码或通信日志交给 AI Agent，再复制「完整适配器」或「简易适配器」提示词。Agent 会先研究项目代码和已有资料，生成设备适配层；资料缺少关键协议时会列出待确认项。
+
+界面和本地服务使用 Node.js 原生 API，无需安装 npm 依赖。
+
+## 给使用者
+
+### 工作原理
+
+```mermaid
+flowchart LR
+  UI[浏览器组件] --> A[设备适配器]
+  A --> T[传输与协议编解码]
+  T --> D[设备]
+  D --> T
+  A --> V[共享设备状态]
+  V --> UI
+```
+
+主程序负责界面、连接、采集和日志。适配器负责把设备协议转换成统一的状态和操作。设备参数、滑块、开关和工况点共用适配器写入流程，写入后固定回读设备状态，再同步所有组件。
+
+### 让 Agent 接入设备
+
+1. 直接复制下面的完整或简易提示词，交给当前仓库中的 Agent。
+2. Agent 会先阅读代码、README 和工作区中已有的设备资料，再自行研究适配方式。
+3. 如果有未放入工作区的资料或额外要求，可自行补充到提示词末尾。
+
+如果需求只是协议、设备参数、状态或控制方式不同，先让 Agent 修改适配器。适配器确实无法表达时，再新增通用组件；只有组件无法满足页面组织需求时，才新增面板。
+
+### 完整适配器
+
+```text
+按照本仓库 README 中「给 AI Agent」部分的规范，先阅读项目代码和工作区或当前对话中的设备资料，自行了解项目后，为目标设备构建完整适配器并完成验证。
+```
+
+### 简易适配器
+
+```text
+按照本仓库 README 中「给 AI Agent」部分的规范，先阅读项目代码和工作区或当前对话中的设备资料，自行了解项目后，为目标设备构建简易适配器，只保留基础必需功能并完成验证。
+```
+
+### 启动与验收
+
+运行需要 Node.js 24。没有随项目提供 `runtime/node.exe` 时，在 Windows 上可使用已安装的 Node.js。双击 `start.cmd` 可启动服务，也可以在项目目录运行：
 
 ```sh
 node server.mjs
 ```
 
-用桌面版 Edge 或 Chrome 打开终端给出的本机地址，默认是 `http://127.0.0.1:8765`。默认端口被其他进程占用时，服务会尝试 `8766`。可以用环境变量 `PID_VISUALIZER_PORT` 指定端口，或用 `PID_VISUALIZER_LOGS` 指定日志目录。
+使用桌面版 Chrome 或 Edge 打开终端显示的本机地址，默认是 `http://127.0.0.1:8765`。默认端口被占用时会尝试 `8766`。可用 `DEVICE_CONSOLE_PORT` 指定端口，用 `DEVICE_CONSOLE_LOGS` 指定日志目录。修改适配器后重启服务并刷新页面。
 
-1. 连接方式选择「本地模拟」，点击「连接设备」和「开始采集」。拖动目标转速滑块，转速环和电流环会一起更新。虚线表示目标值，实线表示实测值。
-2. 点「暂停画面」固定当前画面，后台继续采集。拖动时间轴、横向拖动曲线或在曲线上按住 Shift 滚动，都可以同步回看。点「回到实时」恢复跟随。
-3. 点「停止采集」保存本轮记录，之后仍可回看。报文日志和采样 CSV 可从页面下载，也保存在项目的 `logs/` 目录。当本轮有采样帧时会生成 CSV。
+适配器完成后，选择对应项目和连接方式，连接设备并查看状态。写入任一配置后，检查参数框、滑块和状态值是否都与设备回读一致。采样曲线需要点击「开始采集」。报文日志和有采样时生成的 CSV 可从页面下载，也保存在 `logs/`。
 
-## 接入自己的设备
+## 给 AI Agent
 
-适配器入口只有一个文件，里面的模拟设备通过文本报文演示了采样和指令回显。修改该文件导出的 `adapters` 映射即可登记项目。接入多个项目时可拆成独立文件，再从入口导入。浏览器和本地服务都会加载入口，设备操作放在回调中。修改适配器后重启服务。 [示例适配器](adapters/example.mjs)
+以下部分是适配器实现契约。实现设备接入时以这些接口和现有代码为准，协议细节以用户提供的资料为准。
+
+### 修改范围与入口
+
+- `index.html` 和 `server.mjs` 都从 `adapters/example.mjs` 导入 `adapters`。单设备优先修改该文件。增加独立适配器文件时，更新这两个入口，让浏览器和本地服务使用同一份适配器映射。
+- 适配器映射的键是项目 ID，值至少包含 `label`。按需提供 `transports`、`codec`、`channels`、`panels`、`status`、`write`、`sample`、`onFrame` 和 `command`。
+- 不新增 npm 依赖。设备素材放在 `adapters/assets/`，通过 `new URL("./assets/file", import.meta.url)` 引用。
+
+实现新需求时按此顺序判断：先看适配器回调和配置能否完成；现有组件无法表达所需交互时，再实现可复用组件；已有组件无法满足页面组织时，通过适配器的 `panels` 组合面板。不要把单个设备的协议和行为写进通用组件或主界面。
+
+### 配置写入与回读
+
+所有结构化配置写入都调用 `api.configure(changes)`。固定顺序如下：
+
+1. 控制台标记被修改的配置项为待确认，并暂停其他配置写入。
+2. 调用适配器唯一的 `write(api, changes)` 回调发送配置。`changes` 是由数值、布尔值或文本组成的键值对象；回调不能递归调用 `api.configure`。
+3. 写入成功后调用 `status(api)`，读取设备当前状态。写入回执失败时也会尝试回读，以处理设备已应用但回执丢失的情况。
+4. 将 `status` 返回的 `values` 合并到共享状态。所有绑定这些键的参数框、滑块、开关和图表随之更新。
+
+`status(api)` 必须返回 `{ values, rows, running }` 中适用的字段。`values` 必须是对象，并包含需要同步的全部配置键，不能只返回本次修改的部分。回读缺少待确认配置项时，控制台会保留待确认状态并重试状态查询。配置项只有被回读确认后才会重新开放写入。
+
+面板中的参数组件只登记数值参数，不提供单独的读写回调。读取按钮调用 `api.readback()`，写入按钮调用 `api.configure({ [key]: value })`。普通滑块、开关和工况点的 `run(api, value)` 也应调用 `api.configure`。不要在这些配置回调里直接用 `api.send` 绕过统一写入流程。
+
+设备主动上报可通过 `onFrame(frame, memory)` 返回 `{ status, values, sample }`。待确认的配置键不会被异步上报覆盖，最终以统一状态回读为准。
+
+### 适配器回调
+
+| 回调 | 用途 |
+| --- | --- |
+| `status(api)` | 读取设备状态，返回 `{ values, rows, running }`。连接时调用，采集期间按 `statusIntervalMs` 刷新，默认 500 ms。 |
+| `write(api, changes)` | 配置的唯一协议写入口。校验并发送 `changes`，等待设备写入回执后返回。控制台随后自动调用 `status(api)`。回调中使用 `api.ask` 或 `api.send` 完成实际协议交互，不要在其中再调用 `api.configure`。 |
+| `command(api, text)` | 解析控制台中的文本命令。识别为配置修改时调用 `api.configure(changes)`，普通操作可调用 `api.ask` 或 `api.send`。 |
+| `sample(api)` | 采集期间读取一帧数据，返回 `{ points, tick }`。返回 `undefined` 跳过本帧，返回 `null` 停止轮询。 |
+| `onFrame(frame, memory)` | 同步处理设备主动上报，可返回 `{ status, values, sample }`。不要声明为 `async`。 |
+
+控件的 `run(api, value)` 可以调用 `api.ask(command, parse, timeoutMs)` 等待回执。`parse(frame)` 返回 `undefined` 表示继续等待，返回其他值表示请求完成。`command` 设为 `null` 时只等待回执。`timeoutMs` 包含写入等待和回执等待。单个连接同一时间只能有一个 `api.ask` 请求。
+
+用 `api.publish(values)` 合并状态，用 `api.log(text)` 记录事件，用 `api.progress(text)` 更新操作提示。`api.values` 是当前连接的共享状态，`api.memory` 在一次连接内共享，`api.signal` 用于取消操作。`api.send(command)` 按适配器编码发送，`api.sendRaw(bytes, label)` 原样发送 `Uint8Array`。`api.sources()` 读取适配器登记的项目文件。
+
+### 连接与协议
 
 | 配置 | 用法 |
 | --- | --- |
-| `transports.serial` | 填写 `baudRate` 等串口参数。使用蓝牙 SPP 时，先在系统中配对并确认 COM 端口。 |
-| `transports.ble` | 填写设备的 `service`、`write` 和 `notify`，可选 `filters` 和 `chunkSize`。 |
-| 自定义连接 | 登记 `{ label, open({ receive, lost }) }`，返回 `{ name, write(bytes), close() }`。收到数据调用 `receive(bytes)`，意外断开调用 `lost(原因)`。 |
-| `codec` | 默认用 UTF-8 文本行收发。自定义时提供 `encode(payload)` 和 `decoder(emit)`。解码器收到完整帧后调用 `emit(frame)`，可用 `format(value)` 定义日志显示。 |
-| `files` | 登记配置名到文件路径的映射。服务以项目目录解析相对路径，适配器可调用 `api.sources()` 读取。 |
-| `command(api, text)` | 启用原始报文模块中的手动命令输入。 |
+| `transports.serial` | USB 串口、系统 COM 口或蓝牙 SPP。常用参数是 `baudRate`。浏览器使用端口选择器。 |
+| `transports.ble` | 可配置 `service`、`write`、`notify`、`filters` 和 `chunkSize`。省略三个 UUID 时自动匹配 Nordic UART 或 FFE0/FFE1。 |
+| `transports.tcp` | 提供 `host` 和 `port`。由本地 Node.js 服务连接设备。 |
+| `transports.udp` | 提供对端 `host`、`port`，可选 `localPort` 接收设备主动上报。 |
+| `transports.websocket` | 提供 `url`，可选 `protocols`。默认发送文本，设置 `binary: true` 时发送二进制。 |
+| 自定义连接 | `open({ receive, lost, signal })` 返回 `{ name, write(bytes), close() }`。收到字节调用 `receive(bytes)`，意外断开调用 `lost(reason)`。 |
+| `codec` | 默认是 UTF-8 换行文本。自定义时提供 `encode(payload)` 和 `decoder(emit)`，解码出完整帧后调用 `emit(frame)`，可选 `format(value)` 定义日志文本。 |
 
-### 采样与回显
-
-- 用顶层 `channels` 登记独立通道，每项可填 `label`、`unit` 和 `series`。默认序列是 `target` 和 `actual`。单值通道可以登记 `series: { value: { label: "电压" } }`。
-- `sample(api)` 在采集期间轮询，按通道 ID 返回数据，例如 `{ points: { speed: { target: 1200, actual: 1180 } } }`。默认间隔 50 ms，可用 `intervalMs` 调整。返回 `undefined` 跳过本帧，返回 `null` 停止本轮轮询。
-- `onFrame(frame, memory)` 处理主动上报，可同步返回 `{ sample, status, values }`。`status(api)` 则在连接时查询状态，采集期间按 `statusIntervalMs` 刷新，默认 500 ms。状态可包含 `rows`（名称和值的二元数组）、`values`（共享状态）和 `running`（运行中会禁止断开）。
-- 采样和各通道数据都可带 32 位无符号毫秒时间 `tick`，分别表示回执和控制时刻。省略时使用浏览器时钟或该帧的回执时刻。CSV 按帧和通道保存数据，每个通道各占一行。
-- 控件的 `bind` 指向共享状态键，默认为组件 ID。回调可返回设备确认的数字、布尔值或 `{ value, message }`，也可通过 `api.publish({ 键: 值 })` 更新状态。等待回执超时时，控件保留最近确认的值并显示「待确认」。用 `enabledWhen(values)` 可声明启用条件。
-
-回调中调用 `api.ask(command, parse, timeoutMs)` 发送命令并等待回执。解析函数返回 `undefined` 时继续等待，返回其他值时完成请求。把命令写成 `null` 可单独等帧。用 `api.send(command)` 直接发送，`api.progress(text)` 更新提示，`api.log(text)` 记录事件。`api.memory` 在一次连接内共享，`api.values` 是当前共享状态，`api.signal` 用于响应取消。
+串口文本输入在提供 `command` 回调时由适配器解析；未提供时直接透传文本。十六进制输入按原始字节发送，适配器提供 `status` 时发送后会回读状态。配置命令应由适配器解析后调用 `api.configure`。
 
 ### 面板与组件
 
-在 `panels` 数组中按显示顺序注册面板。组件可直接写在面板的 `modules` 对象里，也可在顶层 `modules` 登记后按 ID 引用。同一通道可以供多张曲线、读数或坐标图使用，这些组件会共享本轮采样数据和回看位置。
+用 `panels` 数组登记面板，`modules` 对象按 ID 配置组件。也可在顶层登记 `modules` 后由面板引用。
 
-| 配置 | 布局 |
+| 组件 | 配置要点 |
 | --- | --- |
-| `position` | 默认 `main`（主区），也可设为 `sidebar`（侧栏）或 `footer`（主区下方）。 |
-| `panelMode` | 主区有多个面板时默认通过标签切换。设为 `"stack"` 可依次展开。 |
-| `columns`、`mobileColumns` | 设置桌面和窄屏列数。桌面和窄屏主区默认一列，窄屏侧栏默认沿用桌面列数。 |
-| `span`、`wide` | 设置组件占用的列数。`wide: true` 占整行，曲线、表格、状态和原始报文默认占整行。 |
-| `chartMode` | 默认同时显示面板内的所有曲线。设为 `"select"` 时默认显示第一条，可用下拉框切换。 |
+| `curve` | 用 `channel` 指定通道，可设 `windowMs`、`gapMs`、`unit` 和 `series`。 |
+| `value`、`bar`、`table` | 数据源 `source` 可用共享状态键或 `{ channel, series }`。条形图可设 `min`、`max`，表格以 `rows` 登记。 |
+| `status`、`console` | 状态组件显示 `rows`。控制台显示收发日志，可设 `open: true` 默认展开。 |
+| `alarms` | `source` 指向共享状态中的告警数组。告警可含 `id`、`code`、`label`、`severity`、`message`、`timestamp`、`active`、`acknowledged`。等级为 `critical`、`warning` 或 `info`。可提供 `acknowledge(api, alarm)`。 |
+| `parameters` | 用 `parameters` 登记 `{ key, label, min, max, step, unit }`。键不能重复，写入走 `api.configure`。适配器需实现 `write` 和完整 `status.values`。 |
+| `diagnostics` | 自动显示连接状态、收发字节与帧数、请求超时、解析错误、写入失败和响应延迟。 |
+| `button` | 点击执行 `run(api)`。可设 `stop: true`、`motion: true`、`enabledWhen(values)` 和 `record`。配置修改应走 `api.configure`。 |
+| `normally-open`、`momentary` | 按下和松开分别向 `run(api, value)` 传入 `true`、`false`。 |
+| `normally-closed` | 按下和松开分别传入 `false`、`true`。 |
+| `toggle`、`slider` | 交替按键可设 `initial`。滑块可设 `min`、`max`、`step`、`initial`、`unit` 和方向。绑定键应是 `status.values` 中的配置项。 |
+| `xy` | 可用常量、共享状态键或采样通道配置点和线。交互回调收到 `{ id, kind, label, x, y }`，配置修改应走 `api.configure`。 |
+| `image`、`svg` | 素材放在 `adapters/assets/`。项目内 SVG 可通过 `new URL(..., import.meta.url)` 引用。 |
 
-| 组件 `type` | 注册方式 |
-| --- | --- |
-| `curve` | 用 `channel` 指定通道，默认是同名通道。可设置 `windowMs`（默认 10000）、`gapMs`、`unit`，也可用 `series` 选择序列并设置图例、颜色或阶梯线。 |
-| `value`、`bar`、`table` | 数值卡、条形图和表格。数据源 `source` 可填共享状态键，或 `{ channel, series }`。条形图可设 `min`、`max`，表格用 `rows` 逐行登记 `label`、`source` 和可选的 `unit`。 |
-| `status`、`console` | 显示设备状态或原始报文。`console` 可设 `open: true` 默认展开。 |
-| `button` | 普通按钮，可省略 `type`。点击执行 `run(api)`。 |
-| `normally-open`、`momentary` | 常开或点动按键，按下向 `run(api, value)` 传入 `true`，松开传入 `false`。 |
-| `normally-closed` | 常闭按键，按下传入 `false`，松开传入 `true`。 |
-| `toggle` | 交替按键，点击传入已确认状态的反值，可设 `initial`。 |
-| `slider` | 可设 `min`、`max`、`step`、`initial` 和 `unit`。通过 `orientation` 选择 `"horizontal"` 或 `"vertical"`。拖动时预览，松开后提交。 |
+面板位置使用 `main`、`sidebar` 或 `footer`。可设置 `columns`、`mobileColumns`、`wide`、`span` 和 `panelMode`。图片样式可配置宽高、对齐、背景和 `fit`。
 
-按下和松开事件会依次执行。指针取消、失去焦点或页面隐藏时会释放按住的控件。可用 `stop: true` 登记优先停止按钮，用 `motion: true` 标记可能启动设备的动作，用 `record` 指定动作成功后开启采集。
+### 验收清单
 
-### 图片、SVG 和二维坐标图
-
-- `type: "image"` 用 `src` 加载图片。SVG 可用 `type: "svg"` 配合 `src` 或完整的 `markup`。项目素材可放在 `adapters/assets/`，在适配器中通过 `new URL(..., import.meta.url)` 引用。
-- 图片、SVG 和坐标图可在 `style` 中设置 `width`、`height`、`align` 和 `background`。宽高可用像素数值或 CSS 长度，宽度也可用百分比。图片和 SVG 可设 `fit` 和 `filter`，项目内或内嵌 SVG 可用 `color` 统一着色。
-- `type: "xy"` 可登记 `x`、`y` 轴、`points` 和 `lines`。省略轴范围时按数据计算，`equalScale: true` 让两轴等比例。点的坐标可取常量、共享状态键或采样通道。`style` 可设 `gridColor`、`axisColor` 和 `selectionColor`，点和线可单独设置 `color` 和 `strokeWidth`。
-- 点击点或线可高亮并显示坐标，也可用 Tab 聚焦后按 Enter 或空格。点击线时取线上最近的坐标，键盘选择时取首点。图元可登记 `run(api, { id, kind, label, x, y })` 执行联动，线的回调还会收到 `points`。
-
-## 主题与嵌入
-
-右上角可切换浅色和深色。第一次打开时跟随系统设置，手动选择保存在浏览器中。适配器可以用 `var(--accent)`、`var(--surface)` 和 `var(--line)` 随主题取色。
-
-嵌入网页时引入 `lib/style.css`，从 `lib/visualizer.mjs` 导入 `mountPidVisualizer`，传入容器和适配器映射即可挂载。可选的 `readSources(id, signal)` 提供配置文本，`saveLogs({ log, csv }, signal)` 保存日志并返回下载地址 `{ log, csv }`。不传 `saveLogs` 时由浏览器生成下载链接。挂载函数返回异步卸载函数。
-
-## 便携分发
-
-Git 会忽略本机的 `runtime/` 和 `logs/`。给没有安装 Node.js 的 Windows x64 用户分发时，把 Windows x64 版的 `node.exe` 放入 `runtime/`，再把项目和运行时一起打包。解压后双击 `start.cmd` 即可使用模拟示例。接入设备的适配器还需要提供自己登记的配置文件和素材。
+- 运行 `node --check adapters/example.mjs`，并检查其他修改过的 `.mjs` 文件。
+- 启动 `node server.mjs`，在浏览器用「本地模拟」验证连接、状态、配置写入和状态回读。
+- 检查从不同组件修改同一个配置键时，其他组件都显示回读值。
+- 检查写入失败或回读缺字段时，控制台保留待确认状态并允许断开连接。
+- 只有用户要求并提供实物设备时，才进行硬件连接验证。

@@ -5,14 +5,18 @@ import { basename, extname, isAbsolute, join, relative, resolve, sep } from "nod
 import { fileURLToPath } from "node:url";
 import { spawn } from "node:child_process";
 import { adapters } from "./adapters/example.mjs";
+import { serveNetwork } from "./lib/network.mjs";
 
 const root = fileURLToPath(new URL(".", import.meta.url));
-const configuredPort = process.env.PID_VISUALIZER_PORT ?? process.env.BLUETOOTH_CONSOLE_PORT;
+const appName = "kimy Device Console";
+const configuredPort = process.env.DEVICE_CONSOLE_PORT ??
+  process.env.PID_VISUALIZER_PORT ?? process.env.BLUETOOTH_CONSOLE_PORT;
 const defaultPort = 8765;
 let port = Number(configuredPort ?? defaultPort);
 let address = "http://127.0.0.1:" + port;
-const logsDir = process.env.PID_VISUALIZER_LOGS ?? process.env.BLUETOOTH_CONSOLE_LOGS ?? join(root, "logs");
-const serverId = "5-" + createHash("sha256").update(JSON.stringify([root, resolve(logsDir)])).digest("hex");
+const logsDir = process.env.DEVICE_CONSOLE_LOGS ??
+  process.env.PID_VISUALIZER_LOGS ?? process.env.BLUETOOTH_CONSOLE_LOGS ?? join(root, "logs");
+const serverId = "8-" + createHash("sha256").update(JSON.stringify([root, resolve(logsDir)])).digest("hex");
 const moduleType = "text/javascript; charset=utf-8";
 const staticFiles = {
   "index.html": "text/html; charset=utf-8",
@@ -98,12 +102,13 @@ async function saveLogs(data) {
 const server = createServer(async (request, response) => {
   response.setHeader("Cache-Control", "no-store");
   response.setHeader("X-Content-Type-Options", "nosniff");
-  response.setHeader("X-PID-Visualizer", serverId);
+  response.setHeader("X-Device-Console", serverId);
   if (!["127.0.0.1:" + port, "localhost:" + port].includes(request.headers.host)) {
     return json(response, 403, { error: "请通过本机网址打开。" });
   }
   try {
-    const pathname = new URL(request.url, address).pathname;
+    const url = new URL(request.url, address);
+    const { pathname } = url;
     if (request.method === "GET" && pathname.startsWith(assetPrefix)) return await serveAsset(pathname, response);
     const file = pathname === "/" ? "index.html" : pathname.slice(1);
     const type = Object.hasOwn(staticFiles, file) ? staticFiles[file] :
@@ -119,8 +124,15 @@ const server = createServer(async (request, response) => {
       const values = await Promise.all(sources.map(async ([key, path]) => [key, await readFile(resolve(root, path), "utf8")]));
       return json(response, 200, Object.fromEntries(values));
     }
+    const localOrigin = [address, "http://localhost:" + port].includes(request.headers.origin);
+    if (request.method === "POST" && pathname.startsWith("/api/transports/")) {
+      if (!localOrigin || request.headers["content-type"] !== "application/octet-stream") {
+        return json(response, 403, { error: "请从本地界面连接设备。" });
+      }
+      return await serveNetwork(request, response, url, adapters, json);
+    }
     if (request.method === "POST" && pathname === "/api/logs") {
-      if (![address, "http://localhost:" + port].includes(request.headers.origin) ||
+      if (!localOrigin ||
           request.headers["content-type"] !== "application/json") {
         return json(response, 403, { error: "请从控制台保存。" });
       }
@@ -139,6 +151,7 @@ const server = createServer(async (request, response) => {
     }
     return json(response, 404, { error: "找不到该资源。" });
   } catch (error) {
+    if (response.destroyed) return;
     return json(response, error.code === "ENOENT" ? 404 : 500, {
       error: error.code === "ENOENT" ? "找不到请求的文件。" : error.message,
     });
@@ -155,9 +168,8 @@ function openBrowser() {
 server.on("error", async (error) => {
   if (error.code === "EADDRINUSE") {
     const active = await fetch(address, { signal: AbortSignal.timeout(1500) }).catch(() => null);
-    const activeId = active?.headers.get("x-pid-visualizer") ?? active?.headers.get("x-bluetooth-console");
-    if (activeId === serverId) {
-      console.log("PID Visualizer 已运行  " + address);
+    if (active?.headers.get("x-device-console") === serverId) {
+      console.log(appName + " 已运行  " + address);
       if (shouldOpen) openBrowser();
       return;
     }
@@ -174,7 +186,7 @@ server.on("error", async (error) => {
 server.on("listening", () => {
   port = server.address().port;
   address = "http://127.0.0.1:" + port;
-  console.log("PID Visualizer 已启动  " + address);
+  console.log(appName + " 已启动  " + address);
   if (shouldOpen) openBrowser();
 });
 server.listen(port, "127.0.0.1");

@@ -3,14 +3,16 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>PID Visualizer</title>
+  <meta name="author" content="kimy">
+  <title>kimy Device Console</title>
   <link rel="icon" href="data:,">
   <link rel="stylesheet" href="./lib/style.css">
 </head>
 <body style="margin: 0">
   <main id="pid-visualizer" class="pid-page"></main>
   <script type="module">
-    import { mountPidVisualizer } from "./lib/visualizer.mjs";
+    import { mountDeviceConsole } from "./lib/visualizer.mjs";
+    import { openNetworkTransport } from "./lib/transport.mjs";
     import { adapters } from "./adapters/example.mjs";
 
     async function request(path, options) {
@@ -20,7 +22,8 @@
       return body;
     }
 
-    mountPidVisualizer(document.getElementById("pid-visualizer"), adapters, {
+    mountDeviceConsole(document.getElementById("pid-visualizer"), adapters, {
+      openNetwork: openNetworkTransport,
       readSources: (id, signal) => request("/api/sources/" + encodeURIComponent(id), { signal }),
       saveLogs: (data, signal) => request("/api/logs", {
         signal,
