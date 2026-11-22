@@ -21,6 +21,7 @@ const moduleType = "text/javascript; charset=utf-8";
 const staticFiles = {
   "index.html": "text/html; charset=utf-8",
   "lib/style.css": "text/css; charset=utf-8",
+  "lib/i18n.mjs": moduleType,
   "lib/visualizer.mjs": moduleType,
   "lib/modules.mjs": moduleType,
   "lib/graphics.mjs": moduleType,

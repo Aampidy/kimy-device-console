@@ -131,6 +131,18 @@
 .pid-visualizer .theme-switch button[aria-pressed="true"] {
   color: var(--ink); background: var(--surface-sunken);
 }
+.pid-visualizer .language-picker {
+  padding-inline-start: 10px; border-inline-start: 1px solid var(--line);
+}
+.pid-visualizer .language-picker select { min-height: 30px; padding: 3px 8px; font-size: 12px; }
+.pid-visualizer .visually-hidden {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+}
+:root[lang="en"] .pid-visualizer .parameter-current::before { content: "Device value"; }
+:root[lang="en"] .pid-visualizer .parameter-entry::before { content: "New value"; }
+:root[lang="en"] .pid-visualizer .parameter-table tr:has(.parameter-actions) > td:nth-child(2)::before { content: "Device value"; }
+:root[lang="en"] .pid-visualizer .parameter-table tr:has(.parameter-actions) > td:nth-child(3)::before { content: "New value"; }
 
 .pid-visualizer .dashboard { padding: 24px 0 48px; display: grid; grid-template-columns: 256px minmax(0, 1fr); align-items: start; gap: 24px; }
 .pid-visualizer :where(.sidebar, .main-column) { display: grid; gap: 16px; min-width: 0; }
