@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PID 可视化</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="./lib/style.css">
+</head>
+<body style="margin: 0">
+  <main id="pid-visualizer" class="pid-page"></main>
+  <script type="module">
+    import { mountPidVisualizer } from "./lib/visualizer.mjs";
+    import { adapters } from "./adapters/example.mjs";
+
+    async function request(path, options) {
+      const response = await fetch(path, options);
+      const body = await response.json();
+      if (!response.ok) throw new Error(body.error);
+      return body;
+    }
+
+    mountPidVisualizer(document.getElementById("pid-visualizer"), adapters, {
+      readSources: (id, signal) => request("/api/sources/" + encodeURIComponent(id), { signal }),
+      saveLogs: (data, signal) => request("/api/logs", {
+        signal,
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      }),
+    });
+  </script>
+</body>
+</html>
