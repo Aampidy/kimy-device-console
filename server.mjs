@@ -7,11 +7,11 @@ import { spawn } from "node:child_process";
 import { adapters } from "./adapters/example.mjs";
 
 const root = fileURLToPath(new URL(".", import.meta.url));
-const configuredPort = process.env.BLUETOOTH_CONSOLE_PORT;
+const configuredPort = process.env.PID_VISUALIZER_PORT ?? process.env.BLUETOOTH_CONSOLE_PORT;
 const defaultPort = 8765;
 let port = Number(configuredPort ?? defaultPort);
 let address = "http://127.0.0.1:" + port;
-const logsDir = process.env.BLUETOOTH_CONSOLE_LOGS ?? join(root, "logs");
+const logsDir = process.env.PID_VISUALIZER_LOGS ?? process.env.BLUETOOTH_CONSOLE_LOGS ?? join(root, "logs");
 const serverId = "5-" + createHash("sha256").update(JSON.stringify([root, resolve(logsDir)])).digest("hex");
 const moduleType = "text/javascript; charset=utf-8";
 const staticFiles = {
@@ -98,7 +98,7 @@ async function saveLogs(data) {
 const server = createServer(async (request, response) => {
   response.setHeader("Cache-Control", "no-store");
   response.setHeader("X-Content-Type-Options", "nosniff");
-  response.setHeader("X-Bluetooth-Console", serverId);
+  response.setHeader("X-PID-Visualizer", serverId);
   if (!["127.0.0.1:" + port, "localhost:" + port].includes(request.headers.host)) {
     return json(response, 403, { error: "请通过本机网址打开。" });
   }
@@ -155,8 +155,9 @@ function openBrowser() {
 server.on("error", async (error) => {
   if (error.code === "EADDRINUSE") {
     const active = await fetch(address, { signal: AbortSignal.timeout(1500) }).catch(() => null);
-    if (active?.headers.get("x-bluetooth-console") === serverId) {
-      console.log("PID 可视化已运行  " + address);
+    const activeId = active?.headers.get("x-pid-visualizer") ?? active?.headers.get("x-bluetooth-console");
+    if (activeId === serverId) {
+      console.log("PID Visualizer 已运行  " + address);
       if (shouldOpen) openBrowser();
       return;
     }
@@ -173,7 +174,7 @@ server.on("error", async (error) => {
 server.on("listening", () => {
   port = server.address().port;
   address = "http://127.0.0.1:" + port;
-  console.log("PID 可视化已启动  " + address);
+  console.log("PID Visualizer 已启动  " + address);
   if (shouldOpen) openBrowser();
 });
 server.listen(port, "127.0.0.1");
