@@ -1,143 +1,151 @@
 # kimy Device Console
 
-### 让 AI 一键适配设备，在浏览器里直接调试
+English | [简体中文](README_zh.md)
 
-面向电赛智能小车、电机实验台和传感器节点等设备的多协议调试控制台。可通过串口或 BLE 现场接入，也可经 TCP/UDP 或 WebSocket 远程连接网络设备，查看状态与实时曲线、读写参数、发送指令，并保存报文和采样数据。
+### Build a device adapter with AI and debug it in your browser
 
-把协议文档、固件源码或通信日志交给 AI Agent，再复制「完整适配器」或「简易适配器」提示词。Agent 会先研究项目代码和已有资料，生成设备适配层；资料缺少关键协议时会列出待确认项。
+A multi-protocol console for devices such as competition robots, motor benches, and sensor nodes. Connect locally over serial or BLE, or connect to network devices over TCP/UDP or WebSocket. Inspect status and live plots, read and write settings, send commands, and save message logs and sampled data. The interface defaults to English and can be switched to Simplified Chinese.
 
-界面和本地服务使用 Node.js 原生 API，无需安装 npm 依赖。
+Give an AI agent protocol documents, firmware source code, or communication logs, then copy the full or basic adapter prompt below. The agent will inspect the project and available materials before generating a device adapter. If essential protocol details are missing, it will list the questions that need answers.
 
-![设备控制台界面：连接模拟电机台架后，转速环与电流环曲线显示阶跃响应](./docs/screenshot.png)
+The browser interface and local Node.js service use built-in APIs and require no npm dependencies.
 
-## 给使用者
+![Batch tuning and speed and current loop plots for the simulated motor bench](./docs/screenshot.png)
 
-### 工作原理
+## For Users
 
-```mermaid
-flowchart LR
-  UI[浏览器组件] --> A[设备适配器]
-  A --> T[传输与协议编解码]
-  T --> D[设备]
-  D --> T
-  A --> V[共享设备状态]
-  V --> UI
-```
+### Start
 
-主程序负责界面、连接、采集和日志。适配器负责把设备协议转换成统一的状态和操作。设备参数、滑块、开关和工况点共用适配器写入流程，写入后固定回读设备状态，再同步所有组件。
-
-### 让 Agent 接入设备
-
-1. 直接复制下面的完整或简易提示词，交给当前仓库中的 Agent。
-2. Agent 会先阅读代码、README 和工作区中已有的设备资料，再自行研究适配方式。
-3. 如果有未放入工作区的资料或额外要求，可自行补充到提示词末尾。
-
-如果需求只是协议、设备参数、状态或控制方式不同，先让 Agent 修改适配器。适配器确实无法表达时，再新增通用组件；只有组件无法满足页面组织需求时，才新增面板。
-
-### 完整适配器
-
-```text
-按照本仓库 README 中「给 AI Agent」部分的规范，先阅读项目代码和工作区或当前对话中的设备资料，自行了解项目后，为目标设备构建完整适配器并完成验证。
-```
-
-### 简易适配器
-
-```text
-按照本仓库 README 中「给 AI Agent」部分的规范，先阅读项目代码和工作区或当前对话中的设备资料，自行了解项目后，为目标设备构建简易适配器，只保留基础必需功能并完成验证。
-```
-
-### 启动与验收
-
-运行需要 Node.js 24。没有随项目提供 `runtime/node.exe` 时，在 Windows 上可使用已安装的 Node.js。双击 `start.cmd` 可启动服务，也可以在项目目录运行：
+Node.js 24 is required. On Windows, double-click `start.cmd`. It uses `runtime/node.exe` when present and otherwise falls back to the system Node.js installation. You can also run this command from the project directory.
 
 ```sh
 node server.mjs
 ```
 
-使用桌面版 Chrome 或 Edge 打开终端显示的本机地址，默认是 `http://127.0.0.1:8765`。默认端口被占用时会尝试 `8766`。可用 `DEVICE_CONSOLE_PORT` 指定端口，用 `DEVICE_CONSOLE_LOGS` 指定日志目录。修改适配器后重启服务并刷新页面。
+Open the local address shown in the terminal using desktop Chrome or Edge. The default address is `http://127.0.0.1:8765`. If the default port is already in use, the server tries `8766`. Set `DEVICE_CONSOLE_PORT` to choose a port or `DEVICE_CONSOLE_LOGS` to choose a log directory. Restart the server and refresh the page after changing an adapter.
 
-适配器完成后，选择对应项目和连接方式，连接设备并查看状态。写入任一配置后，检查参数框、滑块和状态值是否都与设备回读一致。采样曲线需要点击「开始采集」。报文日志和有采样时生成的 CSV 可从页面下载，也保存在 `logs/`。
+### Try the Motor Bench
 
-## 给 AI Agent
+1. Select **Motor bench example** and **Local simulation**, then click **Connect device**.
+2. In the **PID plots** tab, edit the speed setpoint, load setpoint, or protection limits in **Tuning**. Edited fields are highlighted. Click **Apply N changes** or press Enter in a field to write them together. The device values are read back automatically. **Read device** refreshes device values while preserving drafts, and **Undo changes** restores the latest device values.
+3. Click **Start and capture** to run the simulated motor. Adjust the sidebar sliders to observe the plots. Click **Pause display** and drag the capture timeline to review earlier data, then click **Return to live** to follow new data again. You can also inspect measurements in **Device readings**, or select an operating point and load a file preset in **Operating point and bench**.
+4. Expand **Serial debug and messages** at the bottom of the page and send `PING` to see the `PONG` response. **Copy received data** copies received message bodies in order and preserves their line breaks.
+5. Click **Priority stop**, then **Stop capture**. The page can download this capture's message log and, when samples are available, its plot CSV. Files are also saved under `logs/` by default.
 
-以下部分是适配器实现契约。实现设备接入时以这些接口和现有代码为准，协议细节以用户提供的资料为准。
+### How It Works
 
-### 修改范围与入口
+```mermaid
+flowchart LR
+  UI[Browser components] --> A[Device adapter]
+  A --> T[Transport and protocol codec]
+  T --> D[Device]
+  D --> T
+  A --> V[Shared device state]
+  V --> UI
+```
 
-- `index.html` 和 `server.mjs` 都从 `adapters/example.mjs` 导入 `adapters`。单设备优先修改该文件。增加独立适配器文件时，更新这两个入口，让浏览器和本地服务使用同一份适配器映射。
-- 适配器映射的键是项目 ID，值至少包含 `label`。按需提供 `transports`、`codec`、`channels`、`panels`、`status`、`write`、`sample`、`onFrame` 和 `command`。
-- 不新增 npm 依赖。设备素材放在 `adapters/assets/`，通过 `new URL("./assets/file", import.meta.url)` 引用。
+The main application handles the interface, connections, capture, and logs. An adapter translates the device protocol into shared state and operations. Device parameters, sliders, toggles, and operating points use the same adapter write flow. After a write, the console reads back the device state and updates every component.
 
-实现新需求时按此顺序判断：先看适配器回调和配置能否完成；现有组件无法表达所需交互时，再实现可复用组件；已有组件无法满足页面组织时，通过适配器的 `panels` 组合面板。不要把单个设备的协议和行为写进通用组件或主界面。
+### Ask an Agent to Connect a Device
 
-### 配置写入与回读
+1. Copy either the full or basic prompt below and give it to an agent working in this repository.
+2. The agent will inspect the code, this README, and available device materials before choosing an integration approach.
+3. Add any materials outside the workspace or extra requirements to the end of the prompt.
 
-所有结构化配置写入都调用 `api.configure(changes)`。固定顺序如下：
+If the request only changes the protocol, device parameters, status, or controls, start by modifying the adapter. Add a general-purpose component only when the existing components cannot express the interaction. Add a panel only when the existing panel layout cannot meet the requirement.
 
-1. 控制台标记被修改的配置项为待确认，并暂停其他配置写入。
-2. 调用适配器唯一的 `write(api, changes)` 回调发送配置。`changes` 是由数值、布尔值或文本组成的键值对象；回调不能递归调用 `api.configure`。
-3. 写入成功后调用 `status(api)`，读取设备当前状态。写入回执失败时也会尝试回读，以处理设备已应用但回执丢失的情况。
-4. 将 `status` 返回的 `values` 合并到共享状态。所有绑定这些键的参数框、滑块、开关和图表随之更新。
+### Full Adapter
 
-`status(api)` 必须返回 `{ values, rows, running }` 中适用的字段。`values` 必须是对象，并包含需要同步的全部配置键，不能只返回本次修改的部分。回读缺少待确认配置项时，控制台会保留待确认状态并重试状态查询。配置项只有被回读确认后才会重新开放写入。
+```text
+Read the "For AI Agents" section of this README, inspect the project source and the device materials available in the workspace or current conversation, then build a complete adapter for the target device and verify it.
+```
 
-面板中的参数组件只登记数值参数，不提供单独的读写回调。读取按钮调用 `api.readback()`，写入按钮调用 `api.configure({ [key]: value })`。普通滑块、开关和工况点的 `run(api, value)` 也应调用 `api.configure`。不要在这些配置回调里直接用 `api.send` 绕过统一写入流程。
+### Basic Adapter
 
-设备主动上报可通过 `onFrame(frame, memory)` 返回 `{ status, values, sample }`。待确认的配置键不会被异步上报覆盖，最终以统一状态回读为准。
+```text
+Read the "For AI Agents" section of this README, inspect the project source and the device materials available in the workspace or current conversation, then build a basic adapter for the target device. Keep only the essential functionality and verify it.
+```
 
-### 适配器回调
+## For AI Agents
 
-| 回调 | 用途 |
+The sections below define the adapter contract. Follow these interfaces and the existing code when integrating a device. Use user-provided materials as the source of truth for protocol details.
+
+### Scope and Entry Points
+
+- Both `index.html` and `server.mjs` import `adapters` from `adapters/example.mjs`. For a single device, modify that file first. When adding a separate adapter file, update both entry points so the browser and local service use the same adapter map.
+- Adapter map keys are project IDs. Each value must include at least `label` and may provide `transports`, `codec`, `channels`, `panels`, `status`, `write`, `sample`, `onFrame`, and `command` as needed.
+- Do not add npm dependencies. Place device assets in `adapters/assets/` and reference them with `new URL("./assets/file", import.meta.url)`.
+
+When implementing a requirement, first check whether adapter callbacks and configuration can express it. Add a reusable component only when the existing components cannot represent the interaction. Use the adapter's `panels` to arrange existing components before changing the main interface. Keep device-specific protocols and behavior out of shared components and the main interface.
+
+### Configuration Writes and Readback
+
+Route every structured configuration write through `api.configure(changes)`. The flow is fixed:
+
+1. The console marks edited configuration keys as pending confirmation and pauses other configuration writes.
+2. It calls the adapter's single `write(api, changes)` callback. `changes` can contain multiple settings, each with a number, boolean, or string value. The callback communicates with the device through `api.ask` or `api.send`.
+3. After a successful write, the console calls `status(api)` to read the current device state. If the write acknowledgement fails, it still attempts readback in case the device applied the write but its acknowledgement was lost.
+4. The console merges `status.values` into shared state. Device-value fields in the tuning panel and sliders, toggles, and plots bound to those keys update accordingly.
+
+`status(api)` must return applicable fields from `{ values, rows, running }`. `values` must be an object containing every configuration key that needs synchronization. If readback omits a pending key, the console keeps it pending and retries the status query. Writes are enabled again after readback confirms the values. If part of a write fails but readback succeeds, the tuning panel preserves inputs that still differ from the device so they can be retried.
+
+The parameter panel registers numeric parameters only. **Read device** calls `api.readback()`. **Apply changes** combines edited parameters into one `changes` object and calls `api.configure(changes)` once. A slider, toggle, or operating-point handler's `run(api, value)` should also call `api.configure`. Use this shared flow to write settings and read back the device values.
+
+For unsolicited device messages, `onFrame(frame, memory)` may return `{ status, values, sample }`. Asynchronous messages do not overwrite configuration keys awaiting confirmation. The unified status readback remains authoritative.
+
+### Adapter Callbacks
+
+| Callback | Purpose |
 | --- | --- |
-| `status(api)` | 读取设备状态，返回 `{ values, rows, running }`。连接时调用，采集期间按 `statusIntervalMs` 刷新，默认 500 ms。 |
-| `write(api, changes)` | 配置的唯一协议写入口。校验并发送 `changes`，等待设备写入回执后返回。控制台随后自动调用 `status(api)`。回调中使用 `api.ask` 或 `api.send` 完成实际协议交互，不要在其中再调用 `api.configure`。 |
-| `command(api, text)` | 解析控制台中的文本命令。识别为配置修改时调用 `api.configure(changes)`，普通操作可调用 `api.ask` 或 `api.send`。 |
-| `sample(api)` | 采集期间读取一帧数据，返回 `{ points, tick }`。返回 `undefined` 跳过本帧，返回 `null` 停止轮询。 |
-| `onFrame(frame, memory)` | 同步处理设备主动上报，可返回 `{ status, values, sample }`。不要声明为 `async`。 |
+| `status(api)` | Read device status and return `{ values, rows, running }`. Called on connect and refreshed during capture according to `statusIntervalMs`, which defaults to 500 ms. |
+| `write(api, changes)` | The only protocol entry point for configuration writes. Validate and send `changes`, then wait for the device acknowledgement. The console calls `status(api)` afterward. Use `api.ask` or `api.send` for protocol communication. Do not call `api.configure` from this callback. |
+| `command(api, text)` | Parse text commands from the console. For configuration changes, call `api.configure(changes)`. For ordinary operations, use `api.ask` or `api.send`. |
+| `sample(api)` | Read one frame during capture and return `{ points, tick }`. Return `undefined` to skip this frame or `null` to stop polling. |
+| `onFrame(frame, memory)` | Synchronously handle unsolicited device messages and optionally return `{ status, values, sample }`. Do not declare this callback as `async`. |
 
-控件的 `run(api, value)` 可以调用 `api.ask(command, parse, timeoutMs)` 等待回执。`parse(frame)` 返回 `undefined` 表示继续等待，返回其他值表示请求完成。`command` 设为 `null` 时只等待回执。`timeoutMs` 包含写入等待和回执等待。单个连接同一时间只能有一个 `api.ask` 请求。
+A control's `run(api, value)` may call `api.ask(command, parse, timeoutMs)` to wait for a response. When `parse(frame)` returns `undefined`, the console keeps waiting. Any other return value completes the request. Set `command` to `null` to wait for a response without sending a command. `timeoutMs` includes both the write and response wait. A connection can have only one outstanding `api.ask` request at a time.
 
-用 `api.publish(values)` 合并状态，用 `api.log(text)` 记录事件，用 `api.progress(text)` 更新操作提示。`api.values` 是当前连接的共享状态，`api.memory` 在一次连接内共享，`api.signal` 用于取消操作。`api.send(command)` 按适配器编码发送，`api.sendRaw(bytes, label)` 原样发送 `Uint8Array`。`api.sources()` 读取适配器登记的项目文件。
+Use `api.publish(values)` to merge state, `api.log(text)` to record events, and `api.progress(text)` to update the operation notice. `api.values` contains the current connection's shared state. `api.memory` is shared for the lifetime of a connection. `api.signal` cancels operations. `api.send(command)` sends data encoded by the adapter. `api.sendRaw(bytes, label)` sends a `Uint8Array` unchanged. `api.sources()` reads files registered by the adapter.
 
-### 连接与协议
+### Connections and Protocols
 
-| 配置 | 用法 |
+| Configuration | Usage |
 | --- | --- |
-| `transports.serial` | USB 串口、系统 COM 口或蓝牙 SPP。常用参数是 `baudRate`。浏览器使用端口选择器。 |
-| `transports.ble` | 可配置 `service`、`write`、`notify`、`filters` 和 `chunkSize`。省略三个 UUID 时自动匹配 Nordic UART 或 FFE0/FFE1。 |
-| `transports.tcp` | 提供 `host` 和 `port`。由本地 Node.js 服务连接设备。 |
-| `transports.udp` | 提供对端 `host`、`port`，可选 `localPort` 接收设备主动上报。 |
-| `transports.websocket` | 提供 `url`，可选 `protocols`。默认发送文本，设置 `binary: true` 时发送二进制。 |
-| 自定义连接 | `open({ receive, lost, signal })` 返回 `{ name, write(bytes), close() }`。收到字节调用 `receive(bytes)`，意外断开调用 `lost(reason)`。 |
-| `codec` | 默认是 UTF-8 换行文本。自定义时提供 `encode(payload)` 和 `decoder(emit)`，解码出完整帧后调用 `emit(frame)`，可选 `format(value)` 定义日志文本。 |
+| `transports.serial` | USB serial, system COM ports, or Bluetooth SPP. Common option: `baudRate`. The browser uses a port picker. |
+| `transports.ble` | Supports `service`, `write`, `notify`, `filters`, and `chunkSize`. If all three UUIDs are omitted, the console matches Nordic UART or FFE0/FFE1 automatically. |
+| `transports.tcp` | Provide `host` and `port`. The local Node.js service connects to the device. |
+| `transports.udp` | Provide the peer `host` and `port`. Optionally set `localPort` to receive unsolicited device messages. |
+| `transports.websocket` | Provide `url` and optionally `protocols`. Sends text by default. Set `binary: true` to send binary data. |
+| Custom transport | `open({ receive, lost, signal })` returns `{ name, write(bytes), close() }`. Call `receive(bytes)` for incoming bytes and `lost(reason)` for unexpected disconnections. |
+| `codec` | Defaults to UTF-8 newline-delimited text. A custom codec provides `encode(payload)` and `decoder(emit)`. Call `emit(frame)` for each complete frame. Optionally provide `format(value)` to define log text. |
 
-串口文本输入在提供 `command` 回调时由适配器解析；未提供时直接透传文本。十六进制输入按原始字节发送，适配器提供 `status` 时发送后会回读状态。配置命令应由适配器解析后调用 `api.configure`。
+When a `command` callback is provided, the adapter parses text entered in the serial console. Without one, text is passed through directly. Hex input is sent as raw bytes. If the adapter provides `status`, the console reads back status after sending. Configuration commands should be parsed by the adapter and routed through `api.configure`.
 
-### 面板与组件
+### Panels and Components
 
-用 `panels` 数组登记面板，`modules` 对象按 ID 配置组件。也可在顶层登记 `modules` 后由面板引用。
+Register panels in a `panels` array. Configure components by ID in a `modules` object. Components can also be registered in a top-level `modules` object and referenced from panels.
 
-| 组件 | 配置要点 |
+| Component | Configuration |
 | --- | --- |
-| `curve` | 用 `channel` 指定通道，可设 `windowMs`、`gapMs`、`unit` 和 `series`。 |
-| `value`、`bar`、`table` | 数据源 `source` 可用共享状态键或 `{ channel, series }`。条形图可设 `min`、`max`，表格以 `rows` 登记。 |
-| `status`、`console` | 状态组件显示 `rows`。控制台显示收发日志，可设 `open: true` 默认展开。 |
-| `alarms` | `source` 指向共享状态中的告警数组。告警可含 `id`、`code`、`label`、`severity`、`message`、`timestamp`、`active`、`acknowledged`。等级为 `critical`、`warning` 或 `info`。可提供 `acknowledge(api, alarm)`。 |
-| `parameters` | 用 `parameters` 登记 `{ key, label, min, max, step, unit }`。键不能重复，写入走 `api.configure`。适配器需实现 `write` 和完整 `status.values`。 |
-| `diagnostics` | 自动显示连接状态、收发字节与帧数、请求超时、解析错误、写入失败和响应延迟。 |
-| `button` | 点击执行 `run(api)`。可设 `stop: true`、`motion: true`、`enabledWhen(values)` 和 `record`。配置修改应走 `api.configure`。 |
-| `normally-open`、`momentary` | 按下和松开分别向 `run(api, value)` 传入 `true`、`false`。 |
-| `normally-closed` | 按下和松开分别传入 `false`、`true`。 |
-| `toggle`、`slider` | 交替按键可设 `initial`。滑块可设 `min`、`max`、`step`、`initial`、`unit` 和方向。绑定键应是 `status.values` 中的配置项。 |
-| `xy` | 可用常量、共享状态键或采样通道配置点和线。交互回调收到 `{ id, kind, label, x, y }`，配置修改应走 `api.configure`。 |
-| `image`、`svg` | 素材放在 `adapters/assets/`。项目内 SVG 可通过 `new URL(..., import.meta.url)` 引用。 |
+| `curve` | Set `channel` to select a channel. Optional settings include `windowMs`, `gapMs`, `unit`, and `series`. |
+| `value`, `bar`, `table` | `source` can be a shared-state key or `{ channel, series }`. Bars support `min` and `max`. Tables use `rows`. |
+| `status`, `console` | The status component displays `rows`. The console displays transmitted and received messages. Set `open: true` to expand it by default. |
+| `alarms` | Set `source` to an alarm array in shared state. Alarms may include `id`, `code`, `label`, `severity`, `message`, `timestamp`, `active`, and `acknowledged`. Severity is `critical`, `warning`, or `info`. Optionally provide `acknowledge(api, alarm)`. |
+| `parameters` | Register `{ key, label, min, max, step, unit }` entries in `parameters`. The panel shows device values and new-value inputs, and supports applying multiple changes together. Keys must be unique. The adapter must implement `write` and return complete `status.values`. |
+| `diagnostics` | Automatically displays connection state, bytes and frames sent and received, request timeouts, parse errors, write failures, and response latency. |
+| `button` | Clicks call `run(api)`. Supports `stop: true`, `motion: true`, `enabledWhen(values)`, and `record`. Route configuration changes through `api.configure`. |
+| `normally-open`, `momentary` | Pass `true` to `run(api, value)` when pressed and `false` when released. |
+| `normally-closed` | Pass `false` when pressed and `true` when released. |
+| `toggle`, `slider` | Toggles support `initial`. Sliders support `min`, `max`, `step`, `initial`, `unit`, and orientation. A bound key should be a configuration key in `status.values`. |
+| `xy` | Points and lines can use constants, shared-state keys, or sampled channels. The interaction callback receives `{ id, kind, label, x, y }`. Route configuration changes through `api.configure`. |
+| `image`, `svg` | Place assets in `adapters/assets/`. Reference project SVG files with `new URL(..., import.meta.url)`. |
 
-面板位置使用 `main`、`sidebar` 或 `footer`。可设置 `columns`、`mobileColumns`、`wide`、`span` 和 `panelMode`。图片样式可配置宽高、对齐、背景和 `fit`。
+Set `position` to `main`, `sidebar`, or `footer` to place a panel. Use `columns` and `mobileColumns` to set its grid. Set `wide: true` to span the full row, or use `span` to set the number of columns. Set `panelMode: "stack"` on an adapter to show main panels sequentially. Image styles support dimensions, alignment, background, and `fit`.
 
-### 验收清单
+### Verification Checklist
 
-- 运行 `node --check adapters/example.mjs`，并检查其他修改过的 `.mjs` 文件。
-- 启动 `node server.mjs`，在浏览器用「本地模拟」验证连接、状态、配置写入和状态回读。
-- 检查从不同组件修改同一个配置键时，其他组件都显示回读值。
-- 检查写入失败或回读缺字段时，控制台保留待确认状态并允许断开连接。
-- 只有用户要求并提供实物设备时，才进行硬件连接验证。
+- Run `node --check adapters/example.mjs` and check every other modified `.mjs` file.
+- Start `node server.mjs`. In a browser, use **Local simulation** to verify connection, status, configuration writes, and status readback.
+- Apply multiple parameter changes together. Confirm `write(api, changes)` receives the changed keys and that parameter fields and bound sliders display the read-back values.
+- Simulate a partial write failure and confirm inputs that still differ after readback can be retried. If readback omits a pending key, confirm the pending notice and status retry.
+- Test physical hardware only when the user requests it and provides the device.

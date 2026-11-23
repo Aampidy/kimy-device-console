@@ -252,6 +252,15 @@ export const adapters = {
       temperature: { label: "绕组温度", unit: "°C", series: { value: { label: "温度" } } },
     },
     modules: {
+      tuning: {
+        type: "parameters", label: "调参",
+        parameters: [
+          { key: "speedSetpoint", label: "目标转速", ...speedRange, unit: "rpm" },
+          { key: "loadSetpoint", label: "目标负载", ...loadRange, unit: "%" },
+          { key: "currentLimit", label: "电流上限", ...currentLimitRange, unit: "A" },
+          { key: "temperatureLimit", label: "温度上限", ...temperatureLimitRange, unit: "°C" },
+        ],
+      },
       // 两张 PID 曲线各自采样，读数与工况点引用对应通道。
       speed: { type: "curve", windowMs: 10000 },
       current: { type: "curve", series: { target: {}, actual: { color: "var(--plot-blue)" } } },
@@ -275,26 +284,26 @@ export const adapters = {
               return "电机已停止。";
             },
           },
-          // 设定由设备回显。工况点、工况线和文件预设也更新这两个绑定键。
-          speedSlider: {
-            type: "slider", label: "目标转速", bind: "speedSetpoint", unit: "rpm",
-            ...speedRange, orientation: "horizontal", run: setValue("speedSetpoint"),
-          },
           loadPulse: { type: "normally-open", label: "常开加载", run: setValue("loadPulse") },
           interlock: { type: "normally-closed", label: "常闭联锁", run: setValue("interlock") },
           jog: {
             type: "momentary", label: "低速点动", motion: true, enabledWhen: canStart, run: setValue("jog"),
           },
           fan: { type: "toggle", label: "冷却风扇", initial: false, run: setValue("fan") },
+          // 滑块、调参组件、工况点和文件预设共用设备的转速与负载设定。
+          speedSlider: {
+            type: "slider", label: "目标转速", bind: "speedSetpoint", unit: "rpm",
+            ...speedRange, run: setValue("speedSetpoint"),
+          },
           loadSlider: {
             type: "slider", label: "目标负载", bind: "loadSetpoint", unit: "%",
-            ...loadRange, orientation: "vertical", wide: true, run: setValue("loadSetpoint"),
+            ...loadRange, run: setValue("loadSetpoint"),
           },
         },
       },
-      { label: "PID 曲线", modules: ["speed", "current"] },
+      { label: "PID 曲线", modules: ["tuning", "speed", "current"] },
       {
-        label: "设备读数", columns: 3, mobileColumns: 2,
+        label: "设备读数", columns: 3, mobileColumns: 3,
         modules: {
           speedReading: { type: "value", label: "实测转速", source: measuredSpeed, unit: "rpm" },
           currentBar: { type: "bar", label: "实测电流", source: measuredCurrent, max: 4, unit: "A" },
@@ -306,18 +315,6 @@ export const adapters = {
               { label: "本帧实际负载", source: measuredLoad, unit: "%" },
               { label: "设备当前设定转速", source: "speedSetpoint", unit: "rpm" },
               { label: "设备当前设定负载", source: "loadSetpoint", unit: "%" },
-            ],
-          },
-        },
-      },
-      {
-        label: "设备参数",
-        modules: {
-          protection: {
-            type: "parameters", label: "保护阈值",
-            parameters: [
-              { key: "currentLimit", label: "电流上限", ...currentLimitRange, unit: "A" },
-              { key: "temperatureLimit", label: "温度上限", ...temperatureLimitRange, unit: "°C" },
             ],
           },
         },
@@ -345,7 +342,7 @@ export const adapters = {
             }],
           },
           preset: {
-            type: "button", label: "载入文件预设", span: 2,
+            type: "button", label: "载入文件预设", wide: true,
             async run(api) {
               api.progress("正在读取工况预设…");
               const files = await api.sources();
@@ -356,11 +353,11 @@ export const adapters = {
           bench: {
             type: "image", label: "电机台架示意图", alt: "电机、联轴器和负载器安装在同一底座上",
             src: new URL("./assets/motor-bench.jpg", import.meta.url).href,
-            style: { height: 176, fit: "contain", background: "var(--surface-raised)" },
+            style: { height: 176, background: "var(--surface-raised)" },
           },
           wiring: {
             type: "svg", label: "控制与回传", alt: "控制台经驱动器控制电机，电机反馈转速与电流",
-            style: { width: 340, height: 176, align: "center", color: "var(--plot-actual)" },
+            style: { height: 176, background: "var(--surface-raised)", color: "var(--plot-actual)" },
             markup: [
               '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 330 120">',
               '  <g fill="none" stroke="#222" stroke-width="2" stroke-linejoin="round">',
@@ -380,9 +377,9 @@ export const adapters = {
         position: "footer", columns: 2,
         modules: {
           status: { type: "status", wide: false },
-          alarms: { type: "alarms", source: "alarms", wide: false, acknowledge: acknowledgeAlarm },
-          diagnostics: { type: "diagnostics", wide: false },
-          console: { type: "console", wide: true },
+          alarms: { type: "alarms", label: "设备告警", source: "alarms", wide: false, acknowledge: acknowledgeAlarm },
+          diagnostics: { type: "diagnostics" },
+          console: { type: "console" },
         },
       },
     ],

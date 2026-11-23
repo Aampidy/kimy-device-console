@@ -139,10 +139,6 @@
   position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
   overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
 }
-:root[lang="en"] .pid-visualizer .parameter-current::before { content: "Device value"; }
-:root[lang="en"] .pid-visualizer .parameter-entry::before { content: "New value"; }
-:root[lang="en"] .pid-visualizer .parameter-table tr:has(.parameter-actions) > td:nth-child(2)::before { content: "Device value"; }
-:root[lang="en"] .pid-visualizer .parameter-table tr:has(.parameter-actions) > td:nth-child(3)::before { content: "New value"; }
 
 .pid-visualizer .dashboard { padding: 24px 0 48px; display: grid; grid-template-columns: 256px minmax(0, 1fr); align-items: start; gap: 24px; }
 .pid-visualizer :where(.sidebar, .main-column) { display: grid; gap: 16px; min-width: 0; }
@@ -330,6 +326,7 @@
 }
 
 .pid-visualizer .overview { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 125px), 1fr)); gap: 10px; margin-top: 13px; }
+.pid-visualizer .overview:has(> :nth-child(4):last-child) { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .pid-visualizer .overview:empty { display: none; }
 .pid-visualizer .overview div { min-width: 0; padding: 8px 10px; background: var(--surface-raised); overflow-wrap: anywhere; }
 .pid-visualizer .overview dt { color: var(--muted); font-size: 12px; }
@@ -349,26 +346,40 @@
 .pid-visualizer .alarm-row p { grid-column: 1; color: var(--muted); font-size: 12px; overflow-wrap: anywhere; }
 .pid-visualizer .alarm-row button { grid-column: 2; grid-row: 2 / span 2; }
 .pid-visualizer .alarm-empty { padding-top: 10px; color: var(--muted); font-size: 13px; }
+.pid-visualizer :is(.parameter-panel, .diagnostics-panel) { container-type: inline-size; }
 .pid-visualizer .parameter-table { width: 100%; margin-top: 8px; border-collapse: collapse; }
 .pid-visualizer .parameter-table th, .pid-visualizer .parameter-table td {
   padding: 7px 6px; border-top: 1px solid var(--line); text-align: left;
 }
 .pid-visualizer .parameter-table thead th { color: var(--muted); font-size: 12px; font-weight: 500; }
+.pid-visualizer .parameter-table thead th:last-child { width: 42%; }
 .pid-visualizer .parameter-table tbody th { font-weight: 500; }
-.pid-visualizer .parameter-entry { display: flex; align-items: center; gap: 5px; }
-.pid-visualizer .parameter-entry span { color: var(--muted); font-size: 12px; }
-.pid-visualizer .parameter-table input { width: 105px; max-width: 100%; }
-.pid-visualizer .parameter-current { font-family: var(--mono); white-space: nowrap; }
-.pid-visualizer .parameter-actions { min-width: 110px; }
-.pid-visualizer .parameter-actions button { min-height: 32px; margin: 2px; padding: 4px 8px; }
-.pid-visualizer .parameter-status { display: block; color: var(--muted); font-size: 11px; }
+.pid-visualizer .parameter-entry { display: flex; flex-wrap: wrap; align-items: center; gap: 5px 8px; }
+.pid-visualizer .parameter-entry span, .pid-visualizer .parameter-feedback { color: var(--muted); font-size: 12px; }
+.pid-visualizer .parameter-table input { width: 120px; max-width: 100%; font-family: var(--mono); }
+.pid-visualizer .parameter-current { font-family: var(--mono); overflow-wrap: anywhere; }
+.pid-visualizer .parameter-table tr[data-modified] input {
+  border-color: var(--selection); background: var(--selection-fill);
+}
+.pid-visualizer .parameter-table .parameter-status { color: var(--selection); }
+.pid-visualizer .parameter-footer {
+  display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: 8px;
+  padding-top: 12px; margin-top: 4px; border-top: 1px solid var(--line);
+}
+.pid-visualizer .parameter-feedback { margin-inline-end: auto; overflow-wrap: anywhere; }
+.pid-visualizer .parameter-feedback[data-error="true"] { color: var(--danger); }
+.pid-visualizer .parameter-feedback:empty { position: absolute; }
+.pid-visualizer .parameter-status:empty { display: none; }
 .pid-visualizer .diagnostics-grid {
-  display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 115px), 1fr)); gap: 9px 14px;
+  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px 14px;
   margin-top: 10px;
 }
 .pid-visualizer .diagnostics-grid > div { min-width: 0; }
 .pid-visualizer .diagnostics-grid dt { color: var(--muted); font-size: 12px; }
 .pid-visualizer .diagnostics-grid dd { font-family: var(--mono); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+@container (min-width: 490px) {
+  .pid-visualizer .diagnostics-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+}
 .pid-visualizer .console { padding-block: 13px; }
 .pid-visualizer .console summary { cursor: pointer; font-weight: 600; }
 .pid-visualizer .console-actions {
@@ -410,27 +421,31 @@
   .pid-visualizer .readings { flex: 1 1 100%; }
   .pid-visualizer .readings > div { flex: 1 1 64px; min-width: 0; }
   .pid-visualizer .readings dd { font-size: 20px; }
+  .pid-visualizer .data-module { padding: 12px; }
+  .pid-visualizer .data-value { font-size: clamp(16px, 4.2cqi, 20px); }
+}
+@container (max-width: 380px) {
   .pid-visualizer .parameter-table { display: block; }
   .pid-visualizer .parameter-table thead {
     position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap;
   }
   .pid-visualizer .parameter-table tbody { display: grid; }
   .pid-visualizer .parameter-table tbody tr {
-    display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 4px 8px;
+    display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: center; gap: 6px 8px;
     padding-block: 7px; border-top: 1px solid var(--line);
   }
-  .pid-visualizer .parameter-table tbody th { grid-column: 1 / -1; padding: 0; border: 0; }
-  .pid-visualizer .parameter-table tbody td { padding: 0; border: 0; }
-  .pid-visualizer .parameter-table tbody td:nth-child(2) { grid-column: 1; grid-row: 2; }
-  .pid-visualizer .parameter-table tbody td:nth-child(3) { grid-column: 1; grid-row: 3; }
-  .pid-visualizer .parameter-table tbody td:nth-child(4) { grid-column: 2; grid-row: 2 / span 2; }
-  .pid-visualizer .parameter-table tbody td:nth-child(2)::before,
-  .pid-visualizer .parameter-table tbody td:nth-child(3)::before {
-    margin-right: 6px; color: var(--muted); font-size: 12px; line-height: 1.4;
+  .pid-visualizer .parameter-table tbody :is(th, td) { padding: 0; border: 0; overflow-wrap: anywhere; }
+  .pid-visualizer .parameter-current { text-align: end; }
+  .pid-visualizer .parameter-current::before, .pid-visualizer .parameter-entry::before {
+    color: var(--muted); font-size: 12px; line-height: 1.4;
   }
-  .pid-visualizer .parameter-table tbody td:nth-child(2)::before { content: "当前值"; }
-  .pid-visualizer .parameter-table tbody td:nth-child(3)::before { content: "新值"; }
-  .pid-visualizer .parameter-table input { width: 82px; }
-  .pid-visualizer .parameter-actions { min-width: 0; text-align: right; }
-  .pid-visualizer .parameter-actions button { margin: 1px; padding-inline: 6px; }
+  .pid-visualizer .parameter-current::before { content: "设备值"; margin-inline-end: 6px; }
+  .pid-visualizer .parameter-table tbody td:last-child { grid-column: 1 / -1; }
+  .pid-visualizer .parameter-entry::before { content: "新值"; }
+  :root[lang="en"] .pid-visualizer .parameter-current::before { content: "Device value"; }
+  :root[lang="en"] .pid-visualizer .parameter-entry::before { content: "New value"; }
+  :root[lang="en"] .pid-visualizer .parameter-table tr:has(.parameter-actions) > td:nth-child(2)::before { content: "Device value"; }
+  :root[lang="en"] .pid-visualizer .parameter-table tr:has(.parameter-actions) > td:nth-child(3)::before { content: "New value"; }
+  .pid-visualizer .parameter-table input { width: min(105px, 50%); }
+  .pid-visualizer .parameter-feedback { flex-basis: 100%; }
 }
