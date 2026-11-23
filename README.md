@@ -48,11 +48,11 @@ The main application handles the interface, connections, capture, and logs. An a
 
 ### Ask an Agent to Connect a Device
 
-1. Copy either the full or basic prompt below and give it to an agent working in this repository.
+1. Copy a device-adapter prompt or the feature-extension prompt below and give it to an agent working in this repository.
 2. The agent will inspect the code, this README, and available device materials before choosing an integration approach.
 3. Add any materials outside the workspace or extra requirements to the end of the prompt.
 
-If the request only changes the protocol, device parameters, status, or controls, start by modifying the adapter. Add a general-purpose component only when the existing components cannot express the interaction. Add a panel only when the existing panel layout cannot meet the requirement.
+For new functionality, first check whether the existing adapter callbacks, configuration, modules, and panels can provide it. Prefer implementing the change in the adapter and reusing existing components. Extend shared components or the main interface only when the adapter contract cannot express the requirement, and keep such changes generic and reusable.
 
 ### Full Adapter
 
@@ -64,6 +64,12 @@ Read the "For AI Agents" section of this README, inspect the project source and 
 
 ```text
 Read the "For AI Agents" section of this README, inspect the project source and the device materials available in the workspace or current conversation, then build a basic adapter for the target device. Keep only the essential functionality and verify it.
+```
+
+### Feature Extension
+
+```text
+Add this feature to the console: [describe it]. Inspect the existing code and the "For AI Agents" contract, then implement it through the adapter and existing components wherever possible. Extend shared components only if the adapter cannot express it, keep those changes generic, and verify the feature.
 ```
 
 ## For AI Agents
