@@ -8,7 +8,7 @@ import { adapters } from "./adapters/example.mjs";
 import { serveNetwork } from "./lib/network.mjs";
 
 const root = fileURLToPath(new URL(".", import.meta.url));
-const appName = "kimy Device Console";
+const appName = "Patchbay";
 const configuredPort = process.env.DEVICE_CONSOLE_PORT ??
   process.env.PID_VISUALIZER_PORT ?? process.env.BLUETOOTH_CONSOLE_PORT;
 const defaultPort = 8765;
