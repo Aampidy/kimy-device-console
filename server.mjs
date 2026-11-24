@@ -4,7 +4,7 @@ import { mkdir, mkdtemp, readFile, realpath, rename, rmdir, unlink, writeFile } 
 import { basename, extname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawn } from "node:child_process";
-import { adapters } from "./adapters/example.mjs";
+import { adapters } from "./adapters/index.mjs";
 import { serveNetwork } from "./lib/network.mjs";
 
 const root = fileURLToPath(new URL(".", import.meta.url));

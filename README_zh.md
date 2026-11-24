@@ -29,7 +29,7 @@ node server.mjs
 1. 选择「电机台架示例」和「本地模拟」，点击「连接设备」。
 2. 在「PID 曲线」页签的「调参」中修改目标转速、目标负载或保护阈值。改过的输入会高亮，点击「应用 N 项修改」或在输入框按 Enter 即可一起写入，设备值随后自动回读。「读取设备」会刷新设备值并保留草稿，「撤销修改」会把输入恢复为最新设备值。
 3. 点击「启动并采集」运行模拟电机，调节侧栏滑块观察曲线变化。点击「暂停画面」后可拖动采集时间轴回看，再点击「回到实时」继续跟随。也可以在「设备读数」查看实测数据，或在「工况与台架」选择工况点、载入文件预设。
-4. 展开页面底部的「串口调试与报文」，发送 `PING` 查看 `PONG` 响应。点击「复制接收内容」可按顺序复制面板中的接收报文正文，并保留原有换行。
+4. 展开页面底部的「串口调试与报文」，发送 `PING` 查看 `PONG` 响应。默认显示控制台命令及其回复，可切换到「全部报文」查看共享通道中的消息；点击「清空」可清除面板显示。
 5. 点击「优先停止」停机，再点击「停止采集」。页面可下载本轮报文日志和有采样时生成的曲线 CSV，文件默认保存在 `logs/`。
 
 ### 工作原理
@@ -78,7 +78,7 @@ flowchart LR
 
 ### 修改范围与入口
 
-- `index.html` 和 `server.mjs` 都从 `adapters/example.mjs` 导入 `adapters`。单设备优先修改该文件。增加独立适配器文件时，更新这两个入口，让浏览器和本地服务使用同一份适配器映射。
+- `index.html` 和 `server.mjs` 都从 `adapters/index.mjs` 导入适配器映射。新增适配器时，在 `adapters/` 新建文件并在 `adapters/index.mjs` 登记，两个入口无需分别修改。
 - 适配器映射的键是项目 ID，值至少包含 `label`。按需提供 `transports`、`codec`、`channels`、`panels`、`status`、`write`、`sample`、`onFrame` 和 `command`。
 - 不新增 npm 依赖。设备素材放在 `adapters/assets/`，通过 `new URL("./assets/file", import.meta.url)` 引用。
 
@@ -105,7 +105,7 @@ flowchart LR
 | --- | --- |
 | `status(api)` | 读取设备状态，返回 `{ values, rows, running }`。连接时调用，采集期间按 `statusIntervalMs` 刷新，默认 500 ms。 |
 | `write(api, changes)` | 配置的唯一协议写入口。校验并发送 `changes`，等待设备写入回执后返回。控制台随后自动调用 `status(api)`。回调中使用 `api.ask` 或 `api.send` 完成实际协议交互，不要在其中再调用 `api.configure`。 |
-| `command(api, text)` | 解析控制台中的文本命令。识别为配置修改时调用 `api.configure(changes)`，普通操作可调用 `api.ask` 或 `api.send`。 |
+| `command(api, text)` | 解析控制台中的文本命令。配置修改调用 `api.configure(changes)`；需要显示对应回执的操作用 `api.ask`，单向发送用 `api.send`。 |
 | `sample(api)` | 采集期间读取一帧数据，返回 `{ points, tick }`。返回 `undefined` 跳过本帧，返回 `null` 停止轮询。 |
 | `onFrame(frame, memory)` | 同步处理设备主动上报，可返回 `{ status, values, sample }`。不要声明为 `async`。 |
 
@@ -135,7 +135,7 @@ flowchart LR
 | --- | --- |
 | `curve` | 用 `channel` 指定通道，可设 `windowMs`、`gapMs`、`unit` 和 `series`。 |
 | `value`、`bar`、`table` | 数据源 `source` 可用共享状态键或 `{ channel, series }`。条形图可设 `min`、`max`，表格以 `rows` 登记。 |
-| `status`、`console` | 状态组件显示 `rows`。控制台显示收发日志，可设 `open: true` 默认展开。 |
+| `status`、`console` | 状态组件显示 `rows`。控制台默认显示用户命令及其关联回复，可切换为全部报文，也可清空面板显示。`api.ask` 按适配器的协议匹配回执；原始串口直发以收到的下一帧作为回复。单向 `api.send` 只显示发送内容。可设 `open: true` 默认展开。 |
 | `alarms` | `source` 指向共享状态中的告警数组。告警可含 `id`、`code`、`label`、`severity`、`message`、`timestamp`、`active`、`acknowledged`。等级为 `critical`、`warning` 或 `info`。可提供 `acknowledge(api, alarm)`。 |
 | `parameters` | 用 `parameters` 登记 `{ key, label, min, max, step, unit }`，面板显示设备值和新值输入框，支持批量应用修改。键不能重复。适配器需实现 `write` 和完整 `status.values`。 |
 | `diagnostics` | 自动显示连接状态、收发字节与帧数、请求超时、解析错误、写入失败和响应延迟。 |
@@ -143,7 +143,7 @@ flowchart LR
 | `normally-open`、`momentary` | 按下和松开分别向 `run(api, value)` 传入 `true`、`false`。 |
 | `normally-closed` | 按下和松开分别传入 `false`、`true`。 |
 | `toggle`、`slider` | 交替按键可设 `initial`。滑块可设 `min`、`max`、`step`、`initial`、`unit` 和方向。绑定键应是 `status.values` 中的配置项。 |
-| `xy` | 可用常量、共享状态键或采样通道配置点和线。交互回调收到 `{ id, kind, label, x, y }`，配置修改应走 `api.configure`。 |
+| `xy` | 可用常量、共享状态键或采样通道配置点和线。交互回调收到 `{ id, kind, label, x, y }`，配置修改应走 `api.configure`。点可设 `draggable: true` 并提供 `run` 回调以支持拖动和方向键微调；坐标轴可设 `step` 吸附步长。 |
 | `image`、`svg` | 素材放在 `adapters/assets/`。项目内 SVG 可通过 `new URL(..., import.meta.url)` 引用。 |
 
 用面板的 `position` 选择 `main`、`sidebar` 或 `footer`，用 `columns` 和 `mobileColumns` 指定列数。组件可设 `wide: true` 占整行，或用 `span` 指定跨列数。适配器设为 `panelMode: "stack"` 时，主区面板依次展示。图片样式可配置宽高、对齐、背景和 `fit`。

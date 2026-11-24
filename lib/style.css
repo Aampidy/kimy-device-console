@@ -309,6 +309,8 @@
   stroke-width: 3px; pointer-events: none;
 }
 .pid-visualizer .xy-target { --xy-color: var(--graphic-color, var(--accent)); cursor: pointer; outline: none; }
+.pid-visualizer .xy-target[data-draggable="true"] { cursor: grab; touch-action: none; }
+.pid-visualizer .xy-target[data-draggable="true"]:active { cursor: grabbing; }
 .pid-visualizer .xy-target[aria-disabled="true"] { cursor: not-allowed; opacity: .5; }
 .pid-visualizer .xy-mark, .pid-visualizer .xy-hit { fill: none; stroke: var(--xy-color); stroke-linecap: round; stroke-linejoin: round; }
 .pid-visualizer .xy-mark { stroke-width: var(--xy-stroke, 2.5px); pointer-events: none; }
@@ -387,6 +389,8 @@
   margin-top: 8px; color: var(--muted); font-size: 12px;
 }
 .pid-visualizer .console-actions button { min-height: 32px; padding: 4px 8px; }
+.pid-visualizer .console-actions label { display: flex; align-items: center; gap: 6px; }
+.pid-visualizer .console-actions select { min-height: 32px; padding: 4px 8px; }
 .pid-visualizer .console-actions [role="status"]:empty { display: none; }
 .pid-visualizer .console pre {
   min-height: 144px; max-height: 360px; margin: 8px 0 12px; overflow: auto; padding: 12px;

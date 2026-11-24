@@ -231,188 +231,186 @@ const measuredCurrent = { channel: "current", series: "actual" };
 const measuredLoad = { channel: "load", series: "value" };
 const measuredTemperature = { channel: "temperature", series: "value" };
 
-export const adapters = {
-  example: {
-    label: "电机台架示例",
-    codec,
-    write: writeSettings,
-    transports: {
-      simulation: { label: "本地模拟", open: openSimulation },
-      // 内置连接可在面板中填写参数。以下配置可用来预填。
-      // serial: { baudRate: 115200 },
-      // tcp: { host: "127.0.0.1", port: 9000 },
-      // udp: { host: "127.0.0.1", port: 9001, localPort: 9002 },
-      // websocket: { url: "ws://127.0.0.1:8080" },
+export const example = {
+  label: "电机台架示例",
+  codec,
+  write: writeSettings,
+  transports: {
+    simulation: { label: "本地模拟", open: openSimulation },
+    // 内置连接可在面板中填写参数。以下配置可用来预填。
+    // serial: { baudRate: 115200 },
+    // tcp: { host: "127.0.0.1", port: 9000 },
+    // udp: { host: "127.0.0.1", port: 9001, localPort: 9002 },
+    // websocket: { url: "ws://127.0.0.1:8080" },
+  },
+  files: { preset: "adapters/assets/motor-preset.json" },
+  channels: {
+    speed: { label: "转速环", unit: "rpm" },
+    current: { label: "电流环", unit: "A" },
+    load: { label: "实际负载", unit: "%", series: { value: { label: "负载" } } },
+    temperature: { label: "绕组温度", unit: "°C", series: { value: { label: "温度" } } },
+  },
+  modules: {
+    tuning: {
+      type: "parameters", label: "调参",
+      parameters: [
+        { key: "speedSetpoint", label: "目标转速", ...speedRange, unit: "rpm" },
+        { key: "loadSetpoint", label: "目标负载", ...loadRange, unit: "%" },
+        { key: "currentLimit", label: "电流上限", ...currentLimitRange, unit: "A" },
+        { key: "temperatureLimit", label: "温度上限", ...temperatureLimitRange, unit: "°C" },
+      ],
     },
-    files: { preset: "adapters/assets/motor-preset.json" },
-    channels: {
-      speed: { label: "转速环", unit: "rpm" },
-      current: { label: "电流环", unit: "A" },
-      load: { label: "实际负载", unit: "%", series: { value: { label: "负载" } } },
-      temperature: { label: "绕组温度", unit: "°C", series: { value: { label: "温度" } } },
-    },
-    modules: {
-      tuning: {
-        type: "parameters", label: "调参",
-        parameters: [
-          { key: "speedSetpoint", label: "目标转速", ...speedRange, unit: "rpm" },
-          { key: "loadSetpoint", label: "目标负载", ...loadRange, unit: "%" },
-          { key: "currentLimit", label: "电流上限", ...currentLimitRange, unit: "A" },
-          { key: "temperatureLimit", label: "温度上限", ...temperatureLimitRange, unit: "°C" },
-        ],
-      },
-      // 两张 PID 曲线各自采样，读数与工况点引用对应通道。
-      speed: { type: "curve", windowMs: 10000 },
-      current: { type: "curve", series: { target: {}, actual: { color: "var(--plot-blue)" } } },
-    },
-    panels: [
-      {
-        label: "台架控制", position: "sidebar", columns: 2,
-        modules: {
-          start: {
-            type: "button", label: "启动并采集", motion: true, record: true, enabledWhen: canStart,
-            async run(api) {
-              await request(api, { op: "start" });
-              return "电机已启动。";
-            },
-          },
-          stop: {
-            type: "button", label: "优先停止", stop: true,
-            async run(api) {
-              await request(api, { op: "stop" });
-              api.log("电机已停止。");
-              return "电机已停止。";
-            },
-          },
-          loadPulse: { type: "normally-open", label: "常开加载", run: setValue("loadPulse") },
-          interlock: { type: "normally-closed", label: "常闭联锁", run: setValue("interlock") },
-          jog: {
-            type: "momentary", label: "低速点动", motion: true, enabledWhen: canStart, run: setValue("jog"),
-          },
-          fan: { type: "toggle", label: "冷却风扇", initial: false, run: setValue("fan") },
-          // 滑块、调参组件、工况点和文件预设共用设备的转速与负载设定。
-          speedSlider: {
-            type: "slider", label: "目标转速", bind: "speedSetpoint", unit: "rpm",
-            ...speedRange, run: setValue("speedSetpoint"),
-          },
-          loadSlider: {
-            type: "slider", label: "目标负载", bind: "loadSetpoint", unit: "%",
-            ...loadRange, run: setValue("loadSetpoint"),
+    // 两张 PID 曲线各自采样，读数与工况点引用对应通道。
+    speed: { type: "curve", windowMs: 10000 },
+    current: { type: "curve", series: { target: {}, actual: { color: "var(--plot-blue)" } } },
+  },
+  panels: [
+    {
+      label: "台架控制", position: "sidebar", columns: 2,
+      modules: {
+        start: {
+          type: "button", label: "启动并采集", motion: true, record: true, enabledWhen: canStart,
+          async run(api) {
+            await request(api, { op: "start" });
+            return "电机已启动。";
           },
         },
-      },
-      { label: "PID 曲线", modules: ["tuning", "speed", "current"] },
-      {
-        label: "设备读数", columns: 3, mobileColumns: 3,
-        modules: {
-          speedReading: { type: "value", label: "实测转速", source: measuredSpeed, unit: "rpm" },
-          currentBar: { type: "bar", label: "实测电流", source: measuredCurrent, max: 4, unit: "A" },
-          temperature: { type: "value", label: "绕组温度", source: measuredTemperature, unit: "°C" },
-          measurements: {
-            type: "table", label: "采样与设定",
-            rows: [
-              { label: "本帧目标转速", source: { channel: "speed", series: "target" }, unit: "rpm" },
-              { label: "本帧实际负载", source: measuredLoad, unit: "%" },
-              { label: "设备当前设定转速", source: "speedSetpoint", unit: "rpm" },
-              { label: "设备当前设定负载", source: "loadSetpoint", unit: "%" },
-            ],
+        stop: {
+          type: "button", label: "优先停止", stop: true,
+          async run(api) {
+            await request(api, { op: "stop" });
+            api.log("电机已停止。");
+            return "电机已停止。";
           },
         },
-      },
-      {
-        label: "工况与台架", columns: 2, mobileColumns: 1,
-        modules: {
-          operatingPoint: {
-            type: "xy", label: "转速与负载工况",
-            x: { label: "转速（rpm）", min: -100, max: 3200 },
-            y: { label: "负载（%）", min: -5, max: 105 },
-            style: {
-              height: 280, background: "var(--surface-raised)",
-              gridColor: "var(--line)", selectionColor: "var(--selection)",
-            },
-            points: [
-              { id: "actual", label: "实测", x: measuredSpeed, y: measuredLoad, color: "var(--plot-actual)", radius: 6 },
-              { id: "low", label: "低速", x: 600, y: 15, run: chooseOperatingPoint },
-              { id: "rated", label: "额定", x: 1800, y: 65, run: chooseOperatingPoint },
-              { id: "high", label: "高速", x: 2700, y: 85, run: chooseOperatingPoint },
-            ],
-            lines: [{
-              id: "half-load", label: "50% 负载线", points: [[300, 50], [2800, 50]],
-              color: "var(--plot-violet)", strokeWidth: 2, run: chooseOperatingPoint,
-            }],
-          },
-          preset: {
-            type: "button", label: "载入文件预设", wide: true,
-            async run(api) {
-              api.progress("正在读取工况预设…");
-              const files = await api.sources();
-              const { speed, load } = JSON.parse(files.preset);
-              return applySetpoint(api, speed, load);
-            },
-          },
-          bench: {
-            type: "image", label: "电机台架示意图", alt: "电机、联轴器和负载器安装在同一底座上",
-            src: new URL("./assets/motor-bench.jpg", import.meta.url).href,
-            style: { height: 176, background: "var(--surface-raised)" },
-          },
-          wiring: {
-            type: "svg", label: "控制与回传", alt: "控制台经驱动器控制电机，电机反馈转速与电流",
-            style: { height: 176, background: "var(--surface-raised)", color: "var(--plot-actual)" },
-            markup: [
-              '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 330 120">',
-              '  <g fill="none" stroke="#222" stroke-width="2" stroke-linejoin="round">',
-              '    <path d="M8 25h80v38H8z M125 25h80v38h-80z M242 25h80v38h-80z"/>',
-              '    <path d="M88 44h37m-8-5 8 5-8 5 M205 44h37m-8-5 8 5-8 5 M282 63v28H48V63m-5 8 5-8 5 8"/>',
-              '  </g>',
-              '  <g fill="#222" font-family="system-ui, sans-serif" font-size="14" text-anchor="middle">',
-              '    <text x="48" y="49">控制台</text><text x="165" y="49">驱动器</text><text x="282" y="49">电机</text>',
-              '    <text x="165" y="111">转速和电流回传</text>',
-              '  </g>',
-              '</svg>',
-            ].join("\n"),
-          },
+        loadPulse: { type: "normally-open", label: "常开加载", run: setValue("loadPulse") },
+        interlock: { type: "normally-closed", label: "常闭联锁", run: setValue("interlock") },
+        jog: {
+          type: "momentary", label: "低速点动", motion: true, enabledWhen: canStart, run: setValue("jog"),
+        },
+        fan: { type: "toggle", label: "冷却风扇", initial: false, run: setValue("fan") },
+        // 滑块、调参组件、工况点和文件预设共用设备的转速与负载设定。
+        speedSlider: {
+          type: "slider", label: "目标转速", bind: "speedSetpoint", unit: "rpm",
+          ...speedRange, run: setValue("speedSetpoint"),
+        },
+        loadSlider: {
+          type: "slider", label: "目标负载", bind: "loadSetpoint", unit: "%",
+          ...loadRange, run: setValue("loadSetpoint"),
         },
       },
-      {
-        position: "footer", columns: 2,
-        modules: {
-          status: { type: "status", wide: false },
-          alarms: { type: "alarms", label: "设备告警", source: "alarms", wide: false, acknowledge: acknowledgeAlarm },
-          diagnostics: { type: "diagnostics" },
-          console: { type: "console" },
+    },
+    { label: "PID 曲线", modules: ["tuning", "speed", "current"] },
+    {
+      label: "设备读数", columns: 3, mobileColumns: 3,
+      modules: {
+        speedReading: { type: "value", label: "实测转速", source: measuredSpeed, unit: "rpm" },
+        currentBar: { type: "bar", label: "实测电流", source: measuredCurrent, max: 4, unit: "A" },
+        temperature: { type: "value", label: "绕组温度", source: measuredTemperature, unit: "°C" },
+        measurements: {
+          type: "table", label: "采样与设定",
+          rows: [
+            { label: "本帧目标转速", source: { channel: "speed", series: "target" }, unit: "rpm" },
+            { label: "本帧实际负载", source: measuredLoad, unit: "%" },
+            { label: "设备当前设定转速", source: "speedSetpoint", unit: "rpm" },
+            { label: "设备当前设定负载", source: "loadSetpoint", unit: "%" },
+          ],
         },
       },
-    ],
-    status: async (api) => describeState((await request(api, { op: "status" })).state),
-    async sample(api) {
-      const sample = (await request(api, { op: "read" })).sample;
-      updateAlarms(api, sample);
-      return sample;
     },
-    onFrame(frame) {
-      if (!frame || frame.id !== undefined) return;
-      if (frame.malformed) throw new Error(frame.error);
-      if (frame.state) return { status: describeState(frame.state) };
-      if (frame.sample) return { sample: frame.sample };
-      if (frame.values) return { values: frame.values };
+    {
+      label: "工况与台架", columns: 2, mobileColumns: 1,
+      modules: {
+        operatingPoint: {
+          type: "xy", label: "转速与负载工况",
+          x: { label: "转速（rpm）", min: -100, max: 3200, step: 50 },
+          y: { label: "负载（%）", min: -5, max: 105, step: 5 },
+          style: {
+            height: 280, background: "var(--surface-raised)",
+            gridColor: "var(--line)", selectionColor: "var(--selection)",
+          },
+          points: [
+            { id: "actual", label: "实测", x: measuredSpeed, y: measuredLoad, color: "var(--plot-actual)", radius: 6 },
+            { id: "low", label: "低速", x: 600, y: 15, draggable: true, run: chooseOperatingPoint },
+            { id: "rated", label: "额定", x: 1800, y: 65, draggable: true, run: chooseOperatingPoint },
+            { id: "high", label: "高速", x: 2700, y: 85, draggable: true, run: chooseOperatingPoint },
+          ],
+          lines: [{
+            id: "half-load", label: "50% 负载线", points: [[300, 50], [2800, 50]],
+            color: "var(--plot-violet)", strokeWidth: 2, run: chooseOperatingPoint,
+          }],
+        },
+        preset: {
+          type: "button", label: "载入文件预设", wide: true,
+          async run(api) {
+            api.progress("正在读取工况预设…");
+            const files = await api.sources();
+            const { speed, load } = JSON.parse(files.preset);
+            return applySetpoint(api, speed, load);
+          },
+        },
+        bench: {
+          type: "image", label: "电机台架示意图", alt: "电机、联轴器和负载器安装在同一底座上",
+          src: new URL("./assets/motor-bench.jpg", import.meta.url).href,
+          style: { height: 176, background: "var(--surface-raised)" },
+        },
+        wiring: {
+          type: "svg", label: "控制与回传", alt: "控制台经驱动器控制电机，电机反馈转速与电流",
+          style: { height: 176, background: "var(--surface-raised)", color: "var(--plot-actual)" },
+          markup: [
+            '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 330 120">',
+            '  <g fill="none" stroke="#222" stroke-width="2" stroke-linejoin="round">',
+            '    <path d="M8 25h80v38H8z M125 25h80v38h-80z M242 25h80v38h-80z"/>',
+            '    <path d="M88 44h37m-8-5 8 5-8 5 M205 44h37m-8-5 8 5-8 5 M282 63v28H48V63m-5 8 5-8 5 8"/>',
+            '  </g>',
+            '  <g fill="#222" font-family="system-ui, sans-serif" font-size="14" text-anchor="middle">',
+            '    <text x="48" y="49">控制台</text><text x="165" y="49">驱动器</text><text x="282" y="49">电机</text>',
+            '    <text x="165" y="111">转速和电流回传</text>',
+            '  </g>',
+            '</svg>',
+          ].join("\n"),
+        },
+      },
     },
-    async command(api, text) {
-      const frame = text.startsWith("{") ? JSON.parse(text) : { op: text.toLowerCase() };
-      if (typeof frame?.op !== "string") throw new Error("命令缺少 op 字段。");
-      if (frame.op === "set") {
-        await api.configure({ [frame.key]: frame.value });
-        return "配置已写入并回读。";
-      }
-      if (frame.op === "setpoint") {
-        await api.configure({ speedSetpoint: frame.speed, loadSetpoint: frame.load });
-        return "配置已写入并回读。";
-      }
-      if (frame.op === "configure") {
-        await api.configure(frame.values);
-        return "配置已写入并回读。";
-      }
-      await api.send(frame);
-      return "命令已发送。";
+    {
+      position: "footer", columns: 2,
+      modules: {
+        status: { type: "status", wide: false },
+        alarms: { type: "alarms", label: "设备告警", source: "alarms", wide: false, acknowledge: acknowledgeAlarm },
+        diagnostics: { type: "diagnostics" },
+        console: { type: "console" },
+      },
     },
+  ],
+  status: async (api) => describeState((await request(api, { op: "status" })).state),
+  async sample(api) {
+    const sample = (await request(api, { op: "read" })).sample;
+    updateAlarms(api, sample);
+    return sample;
+  },
+  onFrame(frame) {
+    if (!frame || frame.id !== undefined) return;
+    if (frame.malformed) throw new Error(frame.error);
+    if (frame.state) return { status: describeState(frame.state) };
+    if (frame.sample) return { sample: frame.sample };
+    if (frame.values) return { values: frame.values };
+  },
+  async command(api, text) {
+    const frame = text.startsWith("{") ? JSON.parse(text) : { op: text.toLowerCase() };
+    if (typeof frame?.op !== "string") throw new Error("命令缺少 op 字段。");
+    if (frame.op === "set") {
+      await api.configure({ [frame.key]: frame.value });
+      return "配置已写入并回读。";
+    }
+    if (frame.op === "setpoint") {
+      await api.configure({ speedSetpoint: frame.speed, loadSetpoint: frame.load });
+      return "配置已写入并回读。";
+    }
+    if (frame.op === "configure") {
+      await api.configure(frame.values);
+      return "配置已写入并回读。";
+    }
+    const response = await request(api, frame);
+    return response.message ?? "命令已完成。";
   },
 };

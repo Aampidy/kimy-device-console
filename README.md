@@ -78,7 +78,7 @@ The sections below define the adapter contract. Follow these interfaces and the 
 
 ### Scope and Entry Points
 
-- Both `index.html` and `server.mjs` import `adapters` from `adapters/example.mjs`. For a single device, modify that file first. When adding a separate adapter file, update both entry points so the browser and local service use the same adapter map.
+- Both `index.html` and `server.mjs` import the adapter map from `adapters/index.mjs`. To add an adapter, create a file in `adapters/` and register it in `adapters/index.mjs`; the two entry points need no separate edits.
 - Adapter map keys are project IDs. Each value must include at least `label` and may provide `transports`, `codec`, `channels`, `panels`, `status`, `write`, `sample`, `onFrame`, and `command` as needed.
 - Do not add npm dependencies. Place device assets in `adapters/assets/` and reference them with `new URL("./assets/file", import.meta.url)`.
 
@@ -105,7 +105,7 @@ For unsolicited device messages, `onFrame(frame, memory)` may return `{ status, 
 | --- | --- |
 | `status(api)` | Read device status and return `{ values, rows, running }`. Called on connect and refreshed during capture according to `statusIntervalMs`, which defaults to 500 ms. |
 | `write(api, changes)` | The only protocol entry point for configuration writes. Validate and send `changes`, then wait for the device acknowledgement. The console calls `status(api)` afterward. Use `api.ask` or `api.send` for protocol communication. Do not call `api.configure` from this callback. |
-| `command(api, text)` | Parse text commands from the console. For configuration changes, call `api.configure(changes)`. For ordinary operations, use `api.ask` or `api.send`. |
+| `command(api, text)` | Parse text commands from the console. For configuration changes, call `api.configure(changes)`. Use `api.ask` for operations that should show their response and `api.send` for one-way sends. |
 | `sample(api)` | Read one frame during capture and return `{ points, tick }`. Return `undefined` to skip this frame or `null` to stop polling. |
 | `onFrame(frame, memory)` | Synchronously handle unsolicited device messages and optionally return `{ status, values, sample }`. Do not declare this callback as `async`. |
 
@@ -135,7 +135,7 @@ Register panels in a `panels` array. Configure components by ID in a `modules` o
 | --- | --- |
 | `curve` | Set `channel` to select a channel. Optional settings include `windowMs`, `gapMs`, `unit`, and `series`. |
 | `value`, `bar`, `table` | `source` can be a shared-state key or `{ channel, series }`. Bars support `min` and `max`. Tables use `rows`. |
-| `status`, `console` | The status component displays `rows`. The console displays transmitted and received messages. Set `open: true` to expand it by default. |
+| `status`, `console` | The status component displays `rows`. The console shows user commands with their correlated responses by default, can switch to all messages, and can clear the display. `api.ask` matches responses through the adapter's protocol; a raw serial send uses the next received frame as its response. A one-way `api.send` only shows what was sent. Set `open: true` to expand it by default. |
 | `alarms` | Set `source` to an alarm array in shared state. Alarms may include `id`, `code`, `label`, `severity`, `message`, `timestamp`, `active`, and `acknowledged`. Severity is `critical`, `warning`, or `info`. Optionally provide `acknowledge(api, alarm)`. |
 | `parameters` | Register `{ key, label, min, max, step, unit }` entries in `parameters`. The panel shows device values and new-value inputs, and supports applying multiple changes together. Keys must be unique. The adapter must implement `write` and return complete `status.values`. |
 | `diagnostics` | Automatically displays connection state, bytes and frames sent and received, request timeouts, parse errors, write failures, and response latency. |
@@ -143,7 +143,7 @@ Register panels in a `panels` array. Configure components by ID in a `modules` o
 | `normally-open`, `momentary` | Pass `true` to `run(api, value)` when pressed and `false` when released. |
 | `normally-closed` | Pass `false` when pressed and `true` when released. |
 | `toggle`, `slider` | Toggles support `initial`. Sliders support `min`, `max`, `step`, `initial`, `unit`, and orientation. A bound key should be a configuration key in `status.values`. |
-| `xy` | Points and lines can use constants, shared-state keys, or sampled channels. The interaction callback receives `{ id, kind, label, x, y }`. Route configuration changes through `api.configure`. |
+| `xy` | Points and lines can use constants, shared-state keys, or sampled channels. The interaction callback receives `{ id, kind, label, x, y }`. Set `draggable: true` and provide `run` on a point to allow dragging and arrow-key nudging; set `step` on an axis to snap coordinates. Route configuration changes through `api.configure`. |
 | `image`, `svg` | Place assets in `adapters/assets/`. Reference project SVG files with `new URL(..., import.meta.url)`. |
 
 Set `position` to `main`, `sidebar`, or `footer` to place a panel. Use `columns` and `mobileColumns` to set its grid. Set `wide: true` to span the full row, or use `span` to set the number of columns. Set `panelMode: "stack"` on an adapter to show main panels sequentially. Image styles support dimensions, alignment, background, and `fit`.
